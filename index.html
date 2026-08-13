@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Feuille de score — Scrabble</title>
+<meta name="description" content="Feuille de score Scrabble interactive pour 2 à 4 joueurs, calcul automatique des totaux.">
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1F5C4D" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F312A" media="(prefers-color-scheme: dark)">
+
+<link rel="icon" href="icons/favicon.png" sizes="32x32">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Scrabble">
+<meta name="mobile-web-app-capable" content="yes">
+
+<style>
+  @font-face {
+    font-family: 'ui-serif-fallback';
+    src: local('Iowan Old Style'), local('Palatino Linotype'), local('Georgia');
+  }
+
+  :root {
+    --bg: #EDEFE3;
+    --surface: #FBFAF4;
+    --surface-2: #F3F1E6;
+    --board: #1F5C4D;
+    --board-dark: #163F35;
+    --tile: #E4C89A;
+    --tile-shadow: #B8985F;
+    --tile-ink: #3B2A1A;
+    --ink: #2B2620;
+    --muted: #766D5D;
+    --accent: #8B5E34;
+    --accent-hover: #714B29;
+    --negative: #B7472A;
+    --border: #DDD6C4;
+    --winner: #B8901E;
+    --winner-bg: #FBF0CE;
+    --focus: #1F5C4D;
+    --shadow: 0 1px 2px rgba(43,38,32,0.06), 0 8px 24px rgba(43,38,32,0.08);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131C18;
+      --surface: #1B2621;
+      --surface-2: #212E28;
+      --board: #16463A;
+      --board-dark: #0F312A;
+      --tile: #D8BD8E;
+      --tile-shadow: #8E7343;
+      --tile-ink: #2B1D10;
+      --ink: #EDE7D9;
+      --muted: #A79E8C;
+      --accent: #C08A50;
+      --accent-hover: #D6A06C;
+      --negative: #E28A66;
+      --border: #33443C;
+      --winner: #E0C468;
+      --winner-bg: #33361E;
+      --focus: #C08A50;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 28px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #131C18;
+    --surface: #1B2621;
+    --surface-2: #212E28;
+    --board: #16463A;
+    --board-dark: #0F312A;
+    --tile: #D8BD8E;
+    --tile-shadow: #8E7343;
+    --tile-ink: #2B1D10;
+    --ink: #EDE7D9;
+    --muted: #A79E8C;
+    --accent: #C08A50;
+    --accent-hover: #D6A06C;
+    --negative: #E28A66;
+    --border: #33443C;
+    --winner: #E0C468;
+    --winner-bg: #33361E;
+    --focus: #C08A50;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 28px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    background: var(--bg);
+  }
+  body {
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px calc(64px + env(safe-area-inset-bottom));
+    padding-top: calc(32px + env(safe-area-inset-top));
+    min-height: 100vh;
+    margin: 0;
+  }
+
+  .sheet {
+    width: 100%;
+    max-width: 880px;
+    background: var(--surface);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    height: fit-content;
+  }
+
+  /* ---- Header / letter tiles ---- */
+  .banner {
+    background: linear-gradient(180deg, var(--board) 0%, var(--board-dark) 100%);
+    padding: 28px 28px 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .tiles {
+    display: flex;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+  .tile-letter {
+    position: relative;
+    width: clamp(26px, 7vw, 40px);
+    height: clamp(26px, 7vw, 40px);
+    background: linear-gradient(160deg, var(--tile) 0%, var(--tile-shadow) 100%);
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: 700;
+    font-size: clamp(14px, 4vw, 22px);
+    color: var(--tile-ink);
+    box-shadow: 0 2px 0 rgba(0,0,0,0.25), 0 3px 5px rgba(0,0,0,0.25);
+  }
+  .tile-letter .val {
+    position: absolute;
+    bottom: 2px;
+    right: 3px;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: clamp(6px, 1.6vw, 9px);
+    font-weight: 700;
+  }
+  .subtitle {
+    color: #EFE7D2;
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+
+  /* ---- Controls ---- */
+  .controls {
+    padding: 22px 28px 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-end;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+  .field-label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .segmented {
+    display: inline-flex;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .segmented button {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .segmented button.active {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn {
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--ink);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 120ms ease;
+  }
+  .btn:hover { background: var(--border); }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn.primary:hover { background: var(--accent-hover); }
+  .btn:focus-visible, .segmented button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  /* ---- Player names ---- */
+  .players-strip {
+    padding: 18px 28px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .player-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+  .player-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .player-card input {
+    border: none;
+    background: transparent;
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 700;
+    width: 100%;
+    font-family: inherit;
+  }
+  .player-card input:focus-visible { outline: none; }
+
+  /* ---- Table ---- */
+  .table-wrap {
+    overflow-x: auto;
+    padding: 0 28px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 480px;
+    font-variant-numeric: tabular-nums;
+  }
+  thead th {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    padding: 14px 6px 8px;
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+    border-bottom: 2px solid var(--border);
+  }
+  thead th.player-head {
+    color: var(--ink);
+    font-size: 13px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  thead .sub-row th {
+    padding-top: 4px;
+    font-size: 10px;
+    border-bottom: 2px solid var(--border);
+  }
+  th.turn-col, td.turn-col {
+    width: 42px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  tbody td {
+    padding: 4px 6px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr:nth-child(even) td { background: var(--surface-2); }
+  td.score-cell input {
+    width: 100%;
+    min-width: 44px;
+    text-align: center;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 6px;
+    padding: 6px 2px;
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+  }
+  td.score-cell input:hover { border-color: var(--border); }
+  td.score-cell input:focus-visible {
+    outline: none;
+    border-color: var(--focus);
+    background: var(--surface);
+  }
+  td.score-cell input.negative { color: var(--negative); }
+  td.total-cell {
+    font-weight: 700;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  td.del-col button {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    padding: 4px 6px;
+    border-radius: 5px;
+  }
+  td.del-col button:hover { background: var(--border); color: var(--negative); }
+
+  .add-row-wrap {
+    padding: 12px 28px 4px;
+    display: flex;
+    justify-content: center;
+  }
+
+  /* ---- Footer totals ---- */
+  .footer {
+    padding: 22px 28px 28px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+  }
+  .total-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 20px;
+    border-radius: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    min-width: 110px;
+  }
+  .total-badge.leader {
+    background: var(--winner-bg);
+    border-color: var(--winner);
+  }
+  .total-badge .name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .total-badge.leader .name { color: var(--winner); }
+  .total-badge .score {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .total-badge .crown { font-size: 12px; }
+
+  @media (max-width: 520px) {
+    .banner { padding: 20px 14px 16px; }
+    .controls, .players-strip, .footer { padding-left: 16px; padding-right: 16px; }
+    .table-wrap { padding: 0 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <div class="banner">
+    <div class="tiles" id="titleTiles"></div>
+    <div class="subtitle">Feuille de score</div>
+  </div>
+
+  <div class="controls">
+    <div class="field-group">
+      <span class="field-label">Joueurs</span>
+      <div class="segmented" id="playerCountSeg"></div>
+    </div>
+    <button class="btn" id="newGameBtn">↺ Nouvelle partie</button>
+  </div>
+
+  <div class="players-strip" id="playersStrip"></div>
+
+  <div class="table-wrap">
+    <table id="scoreTable">
+      <thead id="tableHead"></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="add-row-wrap">
+    <button class="btn primary" id="addRowBtn">+ Ajouter un tour</button>
+  </div>
+
+  <div class="footer" id="footerTotals"></div>
+</div>
+
+<script>
+(function () {
+  var STORAGE_KEY = 'scrabble-scoresheet-v1';
+  var FR_VALUES = {S:1,C:3,R:1,A:1,B:3,L:1,E:1};
+  var PLAYER_COLORS = ['#8B5E34', '#1F5C4D', '#3A6EA5', '#B7472A'];
+
+  var defaultState = function () {
+    return {
+      playerCount: 2,
+      players: [
+        { id: 'p1', name: 'CAT' },
+        { id: 'p2', name: 'JB' },
+        { id: 'p3', name: 'Joueur 3' },
+        { id: 'p4', name: 'Joueur 4' }
+      ],
+      rowOrder: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+      nextRowId: 16,
+      scores: { p1: {}, p2: {}, p3: {}, p4: {} }
+    };
+  };
+
+  var state;
+  try {
+    var saved = localStorage.getItem(STORAGE_KEY);
+    state = saved ? JSON.parse(saved) : defaultState();
+    if (!state.players || state.players.length < 4) state = defaultState();
+  } catch (e) {
+    state = defaultState();
+  }
+
+  function persist() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function activePlayers() {
+    return state.players.slice(0, state.playerCount);
+  }
+
+  function runningTotal(playerId, uptoRowId) {
+    var total = 0;
+    for (var i = 0; i < state.rowOrder.length; i++) {
+      var rid = state.rowOrder[i];
+      var v = state.scores[playerId][rid];
+      if (typeof v === 'number' && !isNaN(v)) total += v;
+      if (rid === uptoRowId) break;
+    }
+    return total;
+  }
+
+  function grandTotal(playerId) {
+    var total = 0;
+    var s = state.scores[playerId];
+    for (var rid in s) {
+      if (typeof s[rid] === 'number' && !isNaN(s[rid])) total += s[rid];
+    }
+    return total;
+  }
+
+  // ---- Title tiles ----
+  function renderTitleTiles() {
+    var word = 'SCRABBLE';
+    var el = document.getElementById('titleTiles');
+    el.innerHTML = word.split('').map(function (ch) {
+      return '<div class="tile-letter">' + ch + '<span class="val">' + (FR_VALUES[ch] || 1) + '</span></div>';
+    }).join('');
+  }
+
+  // ---- Player count segmented control ----
+  function renderSegmented() {
+    var el = document.getElementById('playerCountSeg');
+    el.innerHTML = [2, 3, 4].map(function (n) {
+      return '<button data-n="' + n + '" class="' + (state.playerCount === n ? 'active' : '') + '">' + n + '</button>';
+    }).join('');
+    Array.prototype.forEach.call(el.querySelectorAll('button'), function (btn) {
+      btn.addEventListener('click', function () {
+        state.playerCount = parseInt(btn.getAttribute('data-n'), 10);
+        persist();
+        renderAll();
+      });
+    });
+  }
+
+  // ---- Player name inputs ----
+  function renderPlayersStrip() {
+    var el = document.getElementById('playersStrip');
+    el.innerHTML = '';
+    activePlayers().forEach(function (p, idx) {
+      var card = document.createElement('div');
+      card.className = 'player-card';
+      card.innerHTML = '<span class="player-dot" style="background:' + PLAYER_COLORS[idx] + '"></span>';
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.value = p.name;
+      input.maxLength = 16;
+      input.setAttribute('aria-label', 'Nom du joueur ' + (idx + 1));
+      input.addEventListener('input', function () {
+        p.name = input.value;
+        persist();
+        renderTableHead();
+        renderFooter();
+      });
+      card.appendChild(input);
+      el.appendChild(card);
+    });
+  }
+
+  // ---- Table head ----
+  function renderTableHead() {
+    var thead = document.getElementById('tableHead');
+    var players = activePlayers();
+    var row1 = '<tr><th class="turn-col" rowspan="2">Tour</th>' +
+      players.map(function (p) {
+        return '<th class="player-head" colspan="2">' + escapeHtml(p.name || '—') + '</th>';
+      }).join('') + '<th class="del-col" rowspan="2"></th></tr>';
+    var row2 = '<tr class="sub-row">' +
+      players.map(function () {
+        return '<th>Pts</th><th>Total</th>';
+      }).join('') + '</tr>';
+    thead.innerHTML = row1 + row2;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ---- Table body ----
+  function renderTableBody() {
+    var tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    var players = activePlayers();
+
+    state.rowOrder.forEach(function (rowId, turnIdx) {
+      var tr = document.createElement('tr');
+      tr.setAttribute('data-row-id', rowId);
+
+      var turnTd = document.createElement('td');
+      turnTd.className = 'turn-col';
+      turnTd.textContent = turnIdx + 1;
+      tr.appendChild(turnTd);
+
+      players.forEach(function (p) {
+        var scoreTd = document.createElement('td');
+        scoreTd.className = 'score-cell';
+        var input = document.createElement('input');
+        input.type = 'number';
+        input.inputMode = 'numeric';
+        input.placeholder = '';
+        var val = state.scores[p.id][rowId];
+        input.value = (typeof val === 'number' && !isNaN(val)) ? val : '';
+        if (typeof val === 'number' && val < 0) input.classList.add('negative');
+        input.setAttribute('aria-label', p.name + ', tour ' + (turnIdx + 1));
+        input.addEventListener('input', function () {
+          var num = input.value === '' ? null : parseInt(input.value, 10);
+          state.scores[p.id][rowId] = (num === null || isNaN(num)) ? null : num;
+          input.classList.toggle('negative', typeof num === 'number' && num < 0);
+          updateTotalsColumn(p.id);
+          renderFooter();
+          persist();
+        });
+        scoreTd.appendChild(input);
+        tr.appendChild(scoreTd);
+
+        var totalTd = document.createElement('td');
+        totalTd.className = 'total-cell';
+        totalTd.setAttribute('data-total-for', p.id);
+        totalTd.textContent = runningTotal(p.id, rowId);
+        tr.appendChild(totalTd);
+      });
+
+      var delTd = document.createElement('td');
+      delTd.className = 'del-col';
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.innerHTML = '✕';
+      delBtn.setAttribute('aria-label', 'Supprimer le tour ' + (turnIdx + 1));
+      delBtn.addEventListener('click', function () {
+        state.rowOrder = state.rowOrder.filter(function (id) { return id !== rowId; });
+        players.forEach(function (p) { delete state.scores[p.id][rowId]; });
+        persist();
+        renderTableBody();
+        renderFooter();
+      });
+      delTd.appendChild(delBtn);
+      tr.appendChild(delTd);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  function updateTotalsColumn(playerId) {
+    var rows = document.querySelectorAll('#tableBody tr');
+    rows.forEach(function (tr) {
+      var rowId = parseInt(tr.getAttribute('data-row-id'), 10);
+      var cell = tr.querySelector('td[data-total-for="' + playerId + '"]');
+      if (cell) cell.textContent = runningTotal(playerId, rowId);
+    });
+  }
+
+  // ---- Footer ----
+  function renderFooter() {
+    var el = document.getElementById('footerTotals');
+    var players = activePlayers();
+    var totals = players.map(function (p) { return { p: p, total: grandTotal(p.id) }; });
+    var max = Math.max.apply(null, totals.map(function (t) { return t.total; }));
+    var hasScores = totals.some(function (t) { return t.total !== 0; });
+
+    el.innerHTML = totals.map(function (t) {
+      var isLeader = hasScores && t.total === max;
+      return '<div class="total-badge' + (isLeader ? ' leader' : '') + '">' +
+        '<span class="name">' + escapeHtml(t.p.name || '—') + (isLeader ? ' <span class="crown">👑</span>' : '') + '</span>' +
+        '<span class="score">' + t.total + '</span>' +
+        '</div>';
+    }).join('');
+  }
+
+  function renderAll() {
+    renderSegmented();
+    renderPlayersStrip();
+    renderTableHead();
+    renderTableBody();
+    renderFooter();
+  }
+
+  document.getElementById('addRowBtn').addEventListener('click', function () {
+    state.rowOrder.push(state.nextRowId);
+    state.nextRowId += 1;
+    persist();
+    renderTableBody();
+  });
+
+  document.getElementById('newGameBtn').addEventListener('click', function () {
+    if (confirm('Démarrer une nouvelle partie ? Les scores actuels seront effacés.')) {
+      var names = state.players.map(function (p) { return p.name; });
+      var count = state.playerCount;
+      state = defaultState();
+      state.playerCount = count;
+      names.forEach(function (n, i) { if (state.players[i]) state.players[i].name = n; });
+      persist();
+      renderAll();
+    }
+  });
+
+  renderTitleTiles();
+  renderAll();
+})();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
+</script>
+</body>
+</html>
