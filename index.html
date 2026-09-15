@@ -197,6 +197,7 @@
     font-weight: 600;
     cursor: pointer;
     font-family: inherit;
+    touch-action: manipulation;
   }
   .segmented button.active {
     background: var(--accent);
@@ -216,6 +217,7 @@
     align-items: center;
     gap: 6px;
     transition: background 120ms ease;
+    touch-action: manipulation;
   }
   .btn:hover { background: var(--border); }
   .btn.primary {
@@ -271,7 +273,7 @@
   table {
     border-collapse: collapse;
     width: 100%;
-    min-width: 480px;
+    min-width: 540px;
     font-variant-numeric: tabular-nums;
   }
   thead th {
@@ -310,9 +312,35 @@
     border-bottom: 1px solid var(--border);
   }
   tbody tr:nth-child(even) td { background: var(--surface-2); }
+  .score-input {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    justify-content: center;
+  }
+  .sign-toggle {
+    flex-shrink: 0;
+    width: 22px;
+    height: 26px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .sign-toggle.active {
+    background: var(--negative);
+    border-color: var(--negative);
+    color: #fff;
+  }
   td.score-cell input {
     width: 100%;
-    min-width: 44px;
+    min-width: 38px;
     text-align: center;
     border: 1px solid transparent;
     background: transparent;
@@ -323,6 +351,7 @@
     padding: 6px 2px;
     font-family: inherit;
     font-variant-numeric: tabular-nums;
+    touch-action: manipulation;
   }
   td.score-cell input:hover { border-color: var(--border); }
   td.score-cell input:focus-visible {
@@ -578,23 +607,53 @@
       players.forEach(function (p) {
         var scoreTd = document.createElement('td');
         scoreTd.className = 'score-cell';
-        var input = document.createElement('input');
-        input.type = 'number';
-        input.inputMode = 'numeric';
-        input.placeholder = '';
+
+        var wrap = document.createElement('div');
+        wrap.className = 'score-input';
+
         var val = state.scores[p.id][rowId];
-        input.value = (typeof val === 'number' && !isNaN(val)) ? val : '';
-        if (typeof val === 'number' && val < 0) input.classList.add('negative');
+        var isNeg = typeof val === 'number' && val < 0;
+
+        var signBtn = document.createElement('button');
+        signBtn.type = 'button';
+        signBtn.className = 'sign-toggle' + (isNeg ? ' active' : '');
+        signBtn.textContent = '−';
+        signBtn.setAttribute('aria-pressed', isNeg ? 'true' : 'false');
+        signBtn.setAttribute('aria-label', 'Score négatif pour ' + p.name + ', tour ' + (turnIdx + 1));
+
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.inputMode = 'numeric';
+        input.pattern = '[0-9]*';
+        input.autocomplete = 'off';
+        input.value = (typeof val === 'number' && !isNaN(val)) ? Math.abs(val) : '';
+        input.classList.toggle('negative', isNeg);
         input.setAttribute('aria-label', p.name + ', tour ' + (turnIdx + 1));
-        input.addEventListener('input', function () {
-          var num = input.value === '' ? null : parseInt(input.value, 10);
-          state.scores[p.id][rowId] = (num === null || isNaN(num)) ? null : num;
-          input.classList.toggle('negative', typeof num === 'number' && num < 0);
+
+        function commit() {
+          var digits = input.value.replace(/[^0-9]/g, '');
+          if (digits !== input.value) input.value = digits;
+          var negative = signBtn.classList.contains('active');
+          var magnitude = digits === '' ? null : parseInt(digits, 10);
+          var newVal = magnitude === null ? null : (negative ? -magnitude : magnitude);
+          state.scores[p.id][rowId] = newVal;
+          input.classList.toggle('negative', negative && magnitude !== null);
           updateTotalsColumn(p.id);
           renderFooter();
           persist();
+        }
+
+        input.addEventListener('input', commit);
+        signBtn.addEventListener('click', function () {
+          signBtn.classList.toggle('active');
+          signBtn.setAttribute('aria-pressed', signBtn.classList.contains('active') ? 'true' : 'false');
+          commit();
+          input.focus();
         });
-        scoreTd.appendChild(input);
+
+        wrap.appendChild(signBtn);
+        wrap.appendChild(input);
+        scoreTd.appendChild(wrap);
         tr.appendChild(scoreTd);
 
         var totalTd = document.createElement('td');
